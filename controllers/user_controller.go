@@ -474,7 +474,6 @@ func EditAUser(c *fiber.Ctx) error {
 		"FirstName": user.FirstName,
 		"LastName":  user.LastName,
 		"Title":     user.Title,
-		"title":     user.Title,
 	}
 
 	result, err := userCollection.UpdateOne(ctx, bson.M{
