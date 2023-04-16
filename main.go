@@ -17,8 +17,8 @@ func main() {
 
 	routes.UserRoute(app)
 
+	//expose host for other devices
 	app.Listen(":3001")
-
 
 	
 }

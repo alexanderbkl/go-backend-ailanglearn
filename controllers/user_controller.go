@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"go-backend-ailanglearn/configs"
 	"go-backend-ailanglearn/helpers"
@@ -27,7 +28,7 @@ var tokenCollection *mongo.Collection = configs.GetColletion(configs.DB, "tokens
 var noteCollection *mongo.Collection = configs.GetColletion(configs.DB, "notes")
 var validate = validator.New()
 
-func CreateUser(user *models.User, code int, token string, created time.Time) (mongo.InsertOneResult, error) {
+func CreateUser(user *models.User, code int, token string, created time.Time) (bson.M, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -35,13 +36,11 @@ func CreateUser(user *models.User, code int, token string, created time.Time) (m
 	fmt.Println("Id: " + user.Id.Hex())
 	fmt.Println("Email: " + user.Email)
 	fmt.Println("Password: " + user.Password)
-	fmt.Println("Token: " + user.Token)
-	fmt.Println("Refresh_token: " + user.Refresh_token)
 	fmt.Println("Created_at: " + user.Created_at.String())
 
 	//validate the user input
 	if validationErr := validate.Struct(user); validationErr != nil {
-		return mongo.InsertOneResult{}, validationErr
+		return bson.M{}, validationErr
 	}
 
 	newUser := models.User{
@@ -58,21 +57,43 @@ func CreateUser(user *models.User, code int, token string, created time.Time) (m
 		User_id:       user.User_id,
 	}
 
-	result, err := userCollection.InsertOne(ctx, newUser)
-	if err != nil {
-		return mongo.InsertOneResult{}, err
-	}
+	//check if the email already exists
+	filter := bson.M{"email": user.Email}
 
-	if err := HandleInsertToken(token, code, created); err != nil {
-		return mongo.InsertOneResult{}, err
+	var result models.User
+
+	if err := userCollection.FindOne(ctx, filter).Decode(&result); err != nil {
+		if err == mongo.ErrNoDocuments {
+			fmt.Println("No user found, good")
+			if _, err := userCollection.InsertOne(ctx, newUser); err != nil {
+				fmt.Println("error inserting user")
+				return bson.M{}, err
+			} else {
+
+				if resultToken, err := HandleInsertToken(token, code, created); err != nil {
+					fmt.Println("error inserting token")
+					return bson.M{}, err
+				} else {
+					fmt.Println("Token inserted")
+					return resultToken, nil
+				}
+
+			}
+
+		} else {
+			fmt.Println("error email already exists")
+			return bson.M{}, err
+		}
+
 	} else {
-		fmt.Println("Token inserted")
-		return *result, nil
+		fmt.Println("email already exists")
+		err := errors.New("email already exists")
+		return bson.M{}, err
 	}
 
 }
 
-func HandleInsertToken(token string, code int, created time.Time) error {
+func HandleInsertToken(token string, code int, created time.Time) (bson.M, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
 	defer cancel()
@@ -83,7 +104,9 @@ func HandleInsertToken(token string, code int, created time.Time) error {
 		_, errInsert := tokenCollection.InsertOne(ctx, data)
 
 		if errInsert != nil {
-			return errInsert
+			return bson.M{}, errInsert
+		} else {
+			return data, nil
 		}
 	} else if code == 0 {
 		data := bson.M{"token": token, "created_at": created}
@@ -91,11 +114,11 @@ func HandleInsertToken(token string, code int, created time.Time) error {
 		_, errInsert := tokenCollection.InsertOne(ctx, data)
 
 		if errInsert != nil {
-			return errInsert
+			return bson.M{}, errInsert
 		}
 	}
 
-	return nil
+	return bson.M{}, nil
 
 }
 
@@ -307,7 +330,6 @@ func CreateNote(c *fiber.Ctx) error {
 
 	reqToken = splitToken[1]
 
-
 	//validate the token
 	claims, status := helpers.ValidateToken(reqToken)
 
@@ -324,7 +346,6 @@ func CreateNote(c *fiber.Ctx) error {
 
 	}
 
-
 	if err != nil {
 		return c.Status(http.StatusBadRequest).JSON(responses.UserResponse{
 			Status:  http.StatusBadRequest,
@@ -334,7 +355,6 @@ func CreateNote(c *fiber.Ctx) error {
 			},
 		})
 	}
-
 
 	//print all the user input
 	fmt.Println("Id: " + note.Id.Hex())
@@ -353,13 +373,9 @@ func CreateNote(c *fiber.Ctx) error {
 		})
 	}
 
-
 	note.Id = primitive.NewObjectID()
 	note.Created_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
 	note.Updated_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
-	
-
-	
 
 	result, err := noteCollection.InsertOne(ctx, note)
 	if err != nil {
@@ -373,8 +389,54 @@ func CreateNote(c *fiber.Ctx) error {
 			"result": result,
 		},
 	})
-	
 
+}
+
+func GetProfile(c *fiber.Ctx) error {
+	_, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	//if request method is not POST
+	/*
+	if c.Method() != "POST" {
+		return c.Status(http.StatusMethodNotAllowed).JSON(responses.UserResponse{
+			Status:  http.StatusMethodNotAllowed,
+			Message: "error",
+			Data: &fiber.Map{
+				"result": "Method not allowed`, bitchass bullushit",
+			},
+		})
+	}
+*/
+
+	//get authorization header
+	var reqToken string = c.Get("Authorization")
+	fmt.Println(reqToken)
+	splitToken := strings.Split(reqToken, "Bearer ")
+
+	reqToken = splitToken[1]
+
+	//validate the token
+	claims, status := helpers.ValidateToken(reqToken)
+
+	if !status {
+		return c.Status(http.StatusUnauthorized).JSON(responses.UserResponse{
+			Status:  http.StatusUnauthorized,
+			Message: "error",
+			Data: &fiber.Map{
+				"result": "Invalid token",
+			},
+		})
+	} else {
+		return c.Status(http.StatusOK).JSON(responses.UserResponse{
+			Status:  http.StatusOK,
+			Message: "success",
+			Data: &fiber.Map{
+				"result": claims,
+			},
+		})
+
+	}
 
 }
 
@@ -411,6 +473,7 @@ func EditAUser(c *fiber.Ctx) error {
 	update := bson.M{
 		"FirstName": user.FirstName,
 		"LastName":  user.LastName,
+		"Title":     user.Title,
 		"title":     user.Title,
 	}
 
