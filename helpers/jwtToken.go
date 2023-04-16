@@ -22,11 +22,12 @@ type SignedDetails struct {
 
 var SECRET_KEY string = "SECRET_KEY"
 
-func JWTTokenGenerator(email string, firstName string, lastName string, uid string) (signedToken string, signedRefreshToken string, err error) {
+func JWTTokenGenerator(email string, firstName string, lastName string, uid string, title string) (signedToken string, signedRefreshToken string, err error) {
 	claims := &SignedDetails{
 		Email:      email,
 		First_name: firstName,
 		Last_name:  lastName,
+		Title: 		title,
 		Uid:        uid,
 		StandardClaims: jwt.StandardClaims{
 			ExpiresAt: time.Now().Local().Add(time.Hour * time.Duration(24)).Unix(),

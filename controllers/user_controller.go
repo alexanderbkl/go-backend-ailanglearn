@@ -35,6 +35,7 @@ func CreateUser(user *models.User, code int, token string, created time.Time) (b
 	//print all the user input
 	fmt.Println("Id: " + user.Id.Hex())
 	fmt.Println("Email: " + user.Email)
+	fmt.Println("Title: " + user.Title)
 	fmt.Println("Password: " + user.Password)
 	fmt.Println("Created_at: " + user.Created_at.String())
 
@@ -171,7 +172,7 @@ func HandleSignup(c *fiber.Ctx) error {
 	user.Updated_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
 	user.Id = primitive.NewObjectID()
 	user.User_id = user.Id.Hex()
-	token, refreshToken, _ := helpers.JWTTokenGenerator(user.Email, user.FirstName, user.LastName, user.User_id)
+	token, refreshToken, _ := helpers.JWTTokenGenerator(user.Email, user.FirstName, user.LastName, user.User_id, user.Title)
 	user.Token = token
 	user.Refresh_token = refreshToken
 	encryptedPassword, _ := bcrypt.GenerateFromPassword([]byte(user.Password), 10)
@@ -231,8 +232,8 @@ func HandleSignin(c *fiber.Ctx) error {
 		})
 	}
 
-	auth, email, fname, lname, userid := HandleAuthentication(user.Email, user.Password)
-	token, _, _ := helpers.JWTTokenGenerator(email, fname, lname, userid)
+	auth, email, fname, lname, userid, title := HandleAuthentication(user.Email, user.Password)
+	token, _, _ := helpers.JWTTokenGenerator(email, fname, lname, userid, title)
 	result.Token = token
 	result.Expires_in = time.Now().Local().Add(time.Hour * time.Duration(24)).Unix()
 
@@ -256,7 +257,7 @@ func HandleSignin(c *fiber.Ctx) error {
 
 }
 
-func HandleAuthentication(email string, password string) (bool, string, string, string, string) {
+func HandleAuthentication(email string, password string) (bool, string, string, string, string, string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -267,14 +268,14 @@ func HandleAuthentication(email string, password string) (bool, string, string, 
 	decryptPassword := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
 
 	if decryptPassword != nil {
-		return false, "", "", "", ""
+		return false, "", "", "", "", ""
 	}
 
 	if errFind != nil {
-		return false, "", "", "", ""
+		return false, "", "", "", "", ""
 	}
 
-	return true, user.Email, user.FirstName, user.LastName, user.User_id
+	return true, user.Email, user.FirstName, user.LastName, user.User_id, user.Title
 }
 
 func GetAUser(c *fiber.Ctx) error {

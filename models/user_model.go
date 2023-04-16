@@ -40,8 +40,9 @@ type UserAgent struct {
 }
 
 type AuthenticationModel struct {
-	FirstName string    `json:"first_name" validate:"required"`
-	LastName  string    `json:"last_name" validate:"required"`
+	FirstName  string    `json:"first_name" validate:"required"`
+	LastName   string    `json:"last_name" validate:"required"`
+	Title	   string    `json:"title" bson:"title"`
 	Email      string    `json:"email" validate:"required" bson:"email"`
 	Password   string    `json:"password" validate:"required" bson:"password"`
 	Created_at time.Time `json:"created_at"`
