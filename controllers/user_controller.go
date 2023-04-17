@@ -383,21 +383,20 @@ func GetProfile(c *fiber.Ctx) error {
 	defer cancel()
 
 	//if request method is not POST
-	/*
-		if c.Method() != "POST" {
+	
+		if c.Method() != "GET" {
 			return c.Status(http.StatusMethodNotAllowed).JSON(responses.UserResponse{
 				Status:  http.StatusMethodNotAllowed,
 				Message: "error",
 				Data: &fiber.Map{
-					"result": "Method not allowed`, bitchass bullushit",
+					"result": "Method not allowed",
 				},
 			})
 		}
-	*/
+	
 
 	//get authorization header
 	var reqToken string = c.Get("Authorization")
-	fmt.Println(reqToken)
 	splitToken := strings.Split(reqToken, "Bearer ")
 
 	reqToken = splitToken[1]

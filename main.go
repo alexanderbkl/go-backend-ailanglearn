@@ -12,12 +12,16 @@ import (
 
 func main() {
 
+	
+
+	
+
 	app := fiber.New()
 	app.Use(cors.New())
 
 	app.Use(limiter.New(limiter.Config{
 		Max:               20,
-		KeyGenerator: 	func(c *fiber.Ctx) string { return c.IP() },
+		KeyGenerator:      func(c *fiber.Ctx) string { return c.IP() },
 		Expiration:        30 * time.Second,
 		LimiterMiddleware: limiter.SlidingWindow{},
 	}))
