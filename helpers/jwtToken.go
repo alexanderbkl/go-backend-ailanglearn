@@ -7,28 +7,32 @@ import (
 	"go-backend-ailanglearn/models"
 	"log"
 	"time"
+
 	"github.com/dgrijalva/jwt-go"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
 type SignedDetails struct {
+	Uid		primitive.ObjectID
 	Email      string
 	First_name string
 	Last_name  string
 	Title      string
-	Uid        string
 	jwt.StandardClaims
 }
 
 var SECRET_KEY string = "SECRET_KEY"
 
-func JWTTokenGenerator(email string, firstName string, lastName string, uid string, title string) (signedToken string, signedRefreshToken string, err error) {
+func JWTTokenGenerator(uid primitive.ObjectID, email string, firstName string, lastName string, title string) (signedToken string, signedRefreshToken string, err error) {
+	fmt.Println("Uid___")
+	fmt.Println(uid)
 	claims := &SignedDetails{
+		Uid: 	  uid,
 		Email:      email,
 		First_name: firstName,
 		Last_name:  lastName,
 		Title: 		title,
-		Uid:        uid,
 		StandardClaims: jwt.StandardClaims{
 			ExpiresAt: time.Now().Local().Add(time.Hour * time.Duration(24)).Unix(),
 		},

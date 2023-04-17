@@ -45,7 +45,7 @@ func CreateUser(user *models.User, code int, token string, created time.Time) (b
 	}
 
 	newUser := models.User{
-		Id:            primitive.NewObjectID(),
+		Id:            user.Id,
 		FirstName:     user.FirstName,
 		LastName:      user.LastName,
 		Title:         user.Title,
@@ -55,7 +55,6 @@ func CreateUser(user *models.User, code int, token string, created time.Time) (b
 		Refresh_token: user.Refresh_token,
 		Created_at:    user.Created_at,
 		Updated_at:    user.Updated_at,
-		User_id:       user.User_id,
 	}
 
 	//check if the email already exists
@@ -167,12 +166,11 @@ func HandleSignup(c *fiber.Ctx) error {
 		agent.Browser.Version = string(rune(DeviceInfo.Browser.Version.Major)) + "." + string(rune(DeviceInfo.Browser.Version.Minor)) + "." + string(rune(DeviceInfo.Browser.Version.Patch))
 		agent.DeviceType = DeviceInfo.DeviceType.String()
 	*/
-
+	user.Id = primitive.NewObjectID()
 	user.Created_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
 	user.Updated_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
-	user.Id = primitive.NewObjectID()
-	user.User_id = user.Id.Hex()
-	token, refreshToken, _ := helpers.JWTTokenGenerator(user.Email, user.FirstName, user.LastName, user.User_id, user.Title)
+	//user.Id = primitive.NewObjectID()
+	token, refreshToken, _ := helpers.JWTTokenGenerator(user.Id, user.Email, user.FirstName, user.LastName, user.Title)
 	user.Token = token
 	user.Refresh_token = refreshToken
 	encryptedPassword, _ := bcrypt.GenerateFromPassword([]byte(user.Password), 10)
@@ -233,7 +231,7 @@ func HandleSignin(c *fiber.Ctx) error {
 	}
 
 	auth, email, fname, lname, userid, title := HandleAuthentication(user.Email, user.Password)
-	token, _, _ := helpers.JWTTokenGenerator(email, fname, lname, userid, title)
+	token, _, _ := helpers.JWTTokenGenerator(userid, email, fname, lname, title)
 	result.Token = token
 	result.Expires_in = time.Now().Local().Add(time.Hour * time.Duration(24)).Unix()
 
@@ -257,7 +255,7 @@ func HandleSignin(c *fiber.Ctx) error {
 
 }
 
-func HandleAuthentication(email string, password string) (bool, string, string, string, string, string) {
+func HandleAuthentication(email string, password string) (bool, string, string, string, primitive.ObjectID, string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -268,14 +266,14 @@ func HandleAuthentication(email string, password string) (bool, string, string, 
 	decryptPassword := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
 
 	if decryptPassword != nil {
-		return false, "", "", "", "", ""
+		return false, "", "", "", primitive.ObjectID{}, ""
 	}
 
 	if errFind != nil {
-		return false, "", "", "", "", ""
+		return false, "", "", "", primitive.ObjectID{}, ""
 	}
 
-	return true, user.Email, user.FirstName, user.LastName, user.User_id, user.Title
+	return true, user.Email, user.FirstName, user.LastName, user.Id, user.Title
 }
 
 func GetAUser(c *fiber.Ctx) error {
@@ -325,27 +323,14 @@ func CreateNote(c *fiber.Ctx) error {
 
 	err := c.BodyParser(&note)
 	//get authorization header
+	/*
 	var reqToken string = c.Get("Authorization")
 	fmt.Println(reqToken)
 	splitToken := strings.Split(reqToken, "Bearer ")
 
 	reqToken = splitToken[1]
+*/
 
-	//validate the token
-	claims, status := helpers.ValidateToken(reqToken)
-
-	if !status {
-		return c.Status(http.StatusUnauthorized).JSON(responses.UserResponse{
-			Status:  http.StatusUnauthorized,
-			Message: "error",
-			Data: &fiber.Map{
-				"result": "Invalid token",
-			},
-		})
-	} else {
-		note.User_id = claims.Uid
-
-	}
 
 	if err != nil {
 		return c.Status(http.StatusBadRequest).JSON(responses.UserResponse{
@@ -361,7 +346,7 @@ func CreateNote(c *fiber.Ctx) error {
 	fmt.Println("Id: " + note.Id.Hex())
 	fmt.Println("Title: " + note.Title)
 	fmt.Println("Message: " + note.Message)
-	fmt.Println("User_id: " + note.User_id)
+	fmt.Println("User_id: " + note.User_id.Hex())
 
 	//validate the user input
 	if validationErr := validate.Struct(note); validationErr != nil {
@@ -399,16 +384,16 @@ func GetProfile(c *fiber.Ctx) error {
 
 	//if request method is not POST
 	/*
-	if c.Method() != "POST" {
-		return c.Status(http.StatusMethodNotAllowed).JSON(responses.UserResponse{
-			Status:  http.StatusMethodNotAllowed,
-			Message: "error",
-			Data: &fiber.Map{
-				"result": "Method not allowed`, bitchass bullushit",
-			},
-		})
-	}
-*/
+		if c.Method() != "POST" {
+			return c.Status(http.StatusMethodNotAllowed).JSON(responses.UserResponse{
+				Status:  http.StatusMethodNotAllowed,
+				Message: "error",
+				Data: &fiber.Map{
+					"result": "Method not allowed`, bitchass bullushit",
+				},
+			})
+		}
+	*/
 
 	//get authorization header
 	var reqToken string = c.Get("Authorization")

@@ -18,5 +18,6 @@ func UserRoute(app *fiber.App) {
 		app.Post("/signin", controllers.HandleSignin)
 		app.Get("/getprofile", controllers.GetProfile)
 		app.Post("/createnote", controllers.CreateNote)
+		app.Post("/postmessage", controllers.PostMessage)
 	
 }
